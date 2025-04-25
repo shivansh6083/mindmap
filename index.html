@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stream Roadmap Generator</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.11.1/tsparticles.bundle.min.js"></script>
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #4a6baf;
+      --secondary-color: #3498db;
+      --accent-color: #2980b9;
+      --text-color: #2c3e50;
+      --light-bg: #f8f9fa;
+    }
+
+    body {
+      font-family: 'Poppins', Arial, sans-serif;
+      margin: 0;
+      background-color: #ffffff;
+      overflow: hidden;
+      color: var(--text-color);
+    }
+
+    #tsparticles {
+      position: absolute;
+      width: 100vw;
+      height: 100vh;
+      z-index: -2;
+    }
+
+    /* Floating circles background */
+    .floating-circles {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: -1;
+    }
+
+    .circle {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(74, 107, 175, 0.05);
+      filter: blur(40px);
+      animation: float 15s infinite linear;
+    }
+
+    @keyframes float {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 0;
+      }
+      50% {
+        opacity: 0.2;
+      }
+      100% {
+        transform: translateY(-1000px) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
+    .page {
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      position: relative;
+      opacity: 0;
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+
+    .active {
+      display: flex;
+      opacity: 1;
+      animation: fadeIn 1s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .stream-selection {
+      text-align: center;
+      background: white;
+      padding: 2.5rem 3rem;
+      border-radius: 16px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+      transform: scale(1);
+      transition: all 0.4s ease;
+      max-width: 90%;
+      width: 400px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stream-selection::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 5px;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      animation: progress 2s ease-in-out infinite;
+    }
+
+    @keyframes progress {
+      0% { width: 0; left: 0; }
+      50% { width: 100%; left: 0; }
+      100% { width: 0; left: 100%; }
+    }
+
+    .stream-selection:hover {
+      transform: translateY(-5px) scale(1.02);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .stream-selection h2 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary-color);
+      position: relative;
+      display: inline-block;
+    }
+
+    .stream-selection h2::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 50px;
+      height: 3px;
+      background: var(--secondary-color);
+      border-radius: 3px;
+      animation: bounce 2s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { width: 50px; }
+      50% { width: 70px; }
+    }
+
+    #streamSelect {
+      font-size: 1rem;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: 2px solid var(--primary-color);
+      margin-bottom: 1.5rem;
+      width: 100%;
+      background: white;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a6baf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 1rem;
+    }
+
+    #streamSelect:focus {
+      outline: none;
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 3px rgba(74, 107, 175, 0.2);
+    }
+
+    #streamSelect:hover {
+      border-color: var(--accent-color);
+    }
+
+    #loading p {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 30px;
+      color: var(--text-color);
+    }
+
+    .dots::after {
+      content: "";
+      display: inline-block;
+      animation: dots 1s steps(3, end) infinite;
+    }
+
+    @keyframes dots {
+      0% { content: "."; }
+      33% { content: ".."; }
+      66% { content: "..."; }
+    }
+
+    #mindmap {
+      width: 100%;
+      height: 100%;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .node circle {
+      fill: white;
+      stroke: var(--primary-color);
+      stroke-width: 2px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .node circle:hover {
+      fill: var(--primary-color);
+      stroke: white;
+      stroke-width: 3px;
+      transform: scale(1.1);
+    }
+
+    .node text {
+      font: 14px 'Poppins', sans-serif;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .node:hover text {
+      fill: var(--primary-color);
+      font-size: 15px;
+    }
+
+    /* Style for non-clickable parent nodes */
+    .parent-node circle {
+      cursor: default;
+      fill: var(--light-bg);
+    }
+    .parent-node text {
+      cursor: default;
+    }
+
+    .link {
+      transition: all 0.5s ease;
+    }
+
+    /* Detail Page Styles */
+    #career-detail {
+      padding: 30px;
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    
+    #career-detail h2 {
+      color: var(--text-color);
+      border-bottom: 2px solid var(--secondary-color);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+    
+    .detail-section {
+      margin-bottom: 25px;
+      padding: 15px;
+      border-radius: 8px;
+      background: var(--light-bg);
+      transition: all 0.3s ease;
+    }
+
+    .detail-section:hover {
+      background: #e9ecef;
+      transform: translateX(5px);
+    }
+    
+    .detail-section h3 {
+      color: var(--primary-color);
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+    
+    .nav-button {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .nav-button:hover {
+      background: var(--accent-color);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Header with navigation */
+    .app-header {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    /* Zoom controls */
+    .zoom-controls {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 10;
+    }
+    
+    .zoom-button {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .zoom-button:hover {
+      background: var(--accent-color);
+      transform: scale(1.1);
+    }
+
+    .lottie-icon {
+      width: 80px;
+      height: 80px;
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      transition: all 0.3s ease;
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+    }
+
+    .lottie-icon:hover {
+      transform: scale(1.1) rotate(10deg);
+      filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.15));
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .stream-selection {
+        padding: 20px;
+        width: 90%;
+      }
+      
+      .stream-selection h2 {
+        font-size: 1.5rem;
+      }
+      
+      #streamSelect {
+        width: 90%;
+        font-size: 0.9rem;
+        padding: 10px 15px;
+      }
+      
+      #career-detail {
+        padding: 15px;
+        width: 90%;
+      }
+      
+      .app-header {
+        flex-direction: column;
+        top: 10px;
+        left: 10px;
+      }
+      
+      .lottie-icon {
+        width: 60px;
+        height: 60px;
+        bottom: 20px;
+        left: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="tsparticles"></div>
+  <div class="floating-circles" id="floatingCircles"></div>
+  <lottie-player class="lottie-icon" src="https://assets4.lottiefiles.com/packages/lf20_qp1q7mct.json" background="transparent" speed="1" loop autoplay></lottie-player>
+
+  <!-- Page 1: Stream Selection -->
+  <div id="page1" class="page active">
+    <div class="stream-selection">
+      <h2>Select Your Stream</h2>
+      <select id="streamSelect">
+        <option value="">-- Select --</option>
+        <option value="PCM">PCM</option>
+        <option value="PCB">PCB</option>
+        <option value="Commerce">Commerce</option>
+        <option value="Arts">Arts</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Page 2: Loading -->
+  <div id="loading" class="page">
+    <p>Generating your personalized roadmap<span class="dots"></span></p>
+  </div>
+
+  <!-- Page 3: Mind Map -->
+  <div id="page3" class="page">
+    <div class="app-header">
+      <button class="nav-button" onclick="goBackToStreamSelection()">← Back to Streams</button>
+    </div>
+    <div id="mindmap"></div>
+    <div class="zoom-controls">
+      <button class="zoom-button" onclick="zoomIn()">+</button>
+      <button class="zoom-button" onclick="zoomOut()">-</button>
+    </div>
+  </div>
+
+  <!-- Page 4: Career Detail -->
+  <div id="page4" class="page">
+    <div class="app-header">
+      <button class="nav-button" onclick="goBackToMindMap()">← Back to Roadmap</button>
+      <button class="nav-button" onclick="goBackToStreamSelection()">← Back to Streams</button>
+    </div>
+    <div id="career-detail">
+      <h2 id="career-title">Career Title</h2>
+      
+      <div class="detail-section">
+        <h3>Overview</h3>
+        <p id="career-overview">Loading overview...</p>
+      </div>
+      
+      <div class="detail-section">
+        <h3>Educational Path</h3>
+        <p id="career-education">Loading education information...</p>
+      </div>
+      
+      <div class="detail-section">
+        <h3>Career Prospects</h3>
+        <p id="career-prospects">Loading career prospects...</p>
+      </div>
+      
+      <div class="detail-section">
+        <h3>Salary Range</h3>
+        <p id="career-salary">Loading salary information...</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Career database with detailed information
+  const careerDatabase = {
+    "Software Engineering": {
+      overview: "Software engineers design, develop, and test software systems. They work across various industries creating applications, systems, and platforms.",
+      education: "Bachelor's in Computer Science or related field. Many positions require knowledge of programming languages like Java, Python, or C++.",
+      prospects: "Excellent job growth projected (22% by 2029). Opportunities in tech companies, finance, healthcare, and more.",
+      salary: "Entry-level: ₹4-8 LPA, Mid-career: ₹10-20 LPA, Senior: ₹25+ LPA"
+    },
+    "Civil Engineering": {
+      overview: "Civil engineers design, construct, and maintain infrastructure projects like buildings, roads, bridges, and water systems.",
+      education: "Bachelor's in Civil Engineering. Specializations in structural, transportation, or environmental engineering available.",
+      prospects: "Steady demand with infrastructure development. Government and private sector opportunities available.",
+      salary: "Entry-level: ₹3-6 LPA, Mid-career: ₹8-15 LPA, Senior: ₹18-30 LPA"
+    },
+    "Mechanical Engineering": {
+      overview: "Mechanical engineers design, analyze, and manufacture mechanical systems, from small components to large machinery.",
+      education: "Bachelor's in Mechanical Engineering. Specializations in robotics, automotive, or energy systems available.",
+      prospects: "Broad field with opportunities in manufacturing, automotive, aerospace, and energy sectors.",
+      salary: "Entry-level: ₹3.5-7 LPA, Mid-career: ₹8-18 LPA, Senior: ₹20-35 LPA"
+    },
+    "Scientist": {
+      overview: "Scientists conduct research to advance knowledge in their field. They work in academia, government, or private industry.",
+      education: "PhD typically required. Specializations in physics, chemistry, biology, or other sciences.",
+      prospects: "Varies by specialization. Government and private research labs offer stable positions.",
+      salary: "Entry-level: ₹6-10 LPA, Experienced: ₹12-25 LPA, Senior: ₹30+ LPA"
+    },
+    "Data Scientist": {
+      overview: "Data scientists analyze complex data to help organizations make better decisions. They use statistics, machine learning, and programming.",
+      education: "Bachelor's in Computer Science, Statistics, or related field. Many have Master's degrees.",
+      prospects: "Very strong demand across industries. Projected growth of 31% by 2029.",
+      salary: "Entry-level: ₹6-12 LPA, Mid-career: ₹15-30 LPA, Senior: ₹40+ LPA"
+    },
+    "Defense & Aerospace": {
+      overview: "Professionals in defense and aerospace work on national security projects, aircraft design, space exploration, and related technologies.",
+      education: "Engineering degrees (aerospace, mechanical, electrical). Defense positions may require military training.",
+      prospects: "Stable government positions and growing private sector opportunities in space tech.",
+      salary: "Entry-level: ₹5-9 LPA, Mid-career: ₹10-20 LPA, Senior: ₹25+ LPA"
+    },
+    "Architecture & Design": {
+      overview: "Architects design buildings and structures, balancing aesthetics, functionality, and safety.",
+      education: "Bachelor's in Architecture (5-year program). License required to practice.",
+      prospects: "Growth tied to construction industry. Specializations in sustainable design are growing.",
+      salary: "Entry-level: ₹4-7 LPA, Licensed: ₹8-15 LPA, Experienced: ₹20+ LPA"
+    },
+    "Pure Sciences & Research": {
+      overview: "Researchers in pure sciences work to advance fundamental knowledge in physics, chemistry, mathematics, etc.",
+      education: "PhD typically required. Postdoctoral experience common.",
+      prospects: "Academic positions competitive. Growing opportunities in applied research.",
+      salary: "Postdoc: ₹6-10 LPA, Faculty: ₹8-15 LPA, Senior Researcher: ₹20+ LPA"
+    }
+  };
+
+  const streamData = {
+    PCM: {
+      name: "PCM",
+      children: [
+        { 
+          name: "Engineering",
+          children: [
+            { name: "Software Engineering" },
+            { name: "Civil Engineering" },
+            { name: "Mechanical Engineering" }
+          ]
+        },
+        { name: "Scientist" },
+        { name: "Data Scientist" },
+        { name: "Defense & Aerospace" },
+        { name: "Architecture & Design" },
+        { name: "Pure Sciences & Research" },
+        { name: "Commerce & Management (For PCM Switchers)" },
+        { name: "Entrepreneurship & Startups" },
+        { name: "Government Jobs (PCM Eligible)" },
+        { name: "Unconventional Careers" }
+      ]
+    },
+    PCB: {
+      name: "PCB",
+      children: [
+        { name: "Doctor" },
+        { name: "Biotechnologist" },
+        { name: "Pure Sciences & Research" },
+        { name: "Defense & Aerospace (Medical Corps)" },
+        { name: "Government Jobs (PCB Eligible)" },
+        { name: "Entrepreneurship & Startups (Health Tech)" }
+      ]
+    },
+    Commerce: {
+      name: "Commerce",
+      children: [
+        { name: "Chartered Accountant" },
+        { name: "Digital Marketer" },
+        { name: "Company Secretary" },
+        { name: "Investment Banking" },
+        { name: "Financial Analyst" },
+        { name: "Entrepreneurship & Startups" },
+        { name: "Government Jobs (Commerce Eligible)" },
+        { name: "Unconventional Careers" }
+      ]
+    },
+    Arts: {
+      name: "Arts",
+      children: [
+        { name: "Lawyer (LLB)" },
+        { name: "Journalist" },
+        { name: "Fashion Designer" },
+        { name: "Journalism & Mass Communication" },
+        { name: "Architecture & Design" },
+        { name: "Government Jobs (Arts Eligible)" },
+        { name: "Entrepreneurship & Startups" },
+        { name: "Unconventional Careers" }
+      ]
+    }
+  };
+
+  // Initialize particle background
+  tsParticles.load("tsparticles", {
+    fullScreen: { enable: false },
+    particles: {
+      number: { value: 50 },
+      size: { value: 3 },
+      move: { enable: true, speed: 0.5 },
+      color: { value: "#4a6baf" },
+      links: { enable: true, color: "#4a6baf" }
+    },
+    interactivity: {
+      events: {
+        onHover: { enable: true, mode: "repulse" }
+      }
+    }
+  });
+
+  // Create floating circles
+  const floatingCircles = document.getElementById('floatingCircles');
+  for (let i = 0; i < 10; i++) {
+    const circle = document.createElement('div');
+    circle.className = 'circle';
+    
+    // Random size between 100px and 300px
+    const size = Math.random() * 200 + 100;
+    circle.style.width = `${size}px`;
+    circle.style.height = `${size}px`;
+    
+    // Random position
+    circle.style.left = `${Math.random() * 100}%`;
+    circle.style.top = `${Math.random() * 100}%`;
+    
+    // Random animation duration and delay
+    circle.style.animationDuration = `${Math.random() * 10 + 10}s`;
+    circle.style.animationDelay = `${Math.random() * 5}s`;
+    
+    floatingCircles.appendChild(circle);
+  }
+
+  const streamSelect = document.getElementById("streamSelect");
+  let currentStream = "";
+  let svg, g, zoom;
+  let currentTransform = d3.zoomIdentity;
+
+  // Initialize the page
+  window.onload = function() {
+    // Add hover effect to stream selection
+    const streamSelection = document.querySelector('.stream-selection');
+    const selectElement = document.getElementById('streamSelect');
+    
+    streamSelection.addEventListener('mouseenter', () => {
+      streamSelection.style.transform = 'translateY(-5px) scale(1.02)';
+    });
+    
+    streamSelection.addEventListener('mouseleave', () => {
+      streamSelection.style.transform = 'translateY(0) scale(1)';
+    });
+    
+    // Add focus effect to select element
+    selectElement.addEventListener('focus', () => {
+      streamSelection.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.2)';
+    });
+    
+    selectElement.addEventListener('blur', () => {
+      streamSelection.style.boxShadow = '0 15px 35px rgba(0, 0, 0, 0.1)';
+    });
+    
+    // Add animation when page loads
+    const page1 = document.getElementById('page1');
+    setTimeout(() => {
+      page1.style.opacity = '1';
+      page1.style.transform = 'translateY(0)';
+    }, 100);
+  };
+
+  streamSelect.addEventListener("change", function () {
+    currentStream = this.value;
+    if (!currentStream) return;
+
+    // Show loading screen
+    document.getElementById("page1").classList.remove("active");
+    document.getElementById("loading").classList.add("active");
+
+    setTimeout(() => {
+      // Show mind map
+      document.getElementById("loading").classList.remove("active");
+      document.getElementById("page3").classList.add("active");
+      generateMindMap(currentStream);
+    }, 1000);
+  });
+
+  function generateMindMap(selectedStream) {
+    // Clear previous mindmap if exists
+    d3.select("#mindmap").selectAll("*").remove();
+    
+    const data = streamData[selectedStream];
+
+    svg = d3.select("#mindmap").append("svg")
+      .attr("width", "100%")
+      .attr("height", "100%");
+      
+    g = svg.append("g")
+      .attr("transform", "translate(50,50)");
+
+    zoom = d3.zoom()
+      .scaleExtent([0.5, 3])
+      .on("zoom", (event) => {
+        currentTransform = event.transform;
+        g.attr("transform", currentTransform);
+      });
+
+    // Disable zooming via mouse wheel or touch
+    svg.call(zoom)
+      .on("wheel.zoom", null)
+      .on("touchstart.zoom", null)
+      .on("touchmove.zoom", null)
+      .on("touchend.zoom", null);
+
+    const root = d3.hierarchy(data);
+    const treeLayout = d3.tree()
+      .size([600, 1000]);
+
+    treeLayout(root);
+
+    const colors = ["#f44336", "#2196f3", "#4caf50", "#ff9800", "#9c27b0", "#00bcd4", "#607d8b", "#795548"];
+
+    // Draw links
+    g.selectAll(".link")
+      .data(root.links())
+      .enter()
+      .append("path")
+      .attr("class", "link")
+      .attr("fill", "none")
+      .attr("stroke", () => colors[Math.floor(Math.random() * colors.length)])
+      .attr("stroke-width", 2)
+      .attr("d", d3.linkHorizontal()
+        .x(d => d.y)
+        .y(d => d.x));
+
+    // Create node groups
+    const node = g.selectAll(".node")
+      .data(root.descendants())
+      .enter()
+      .append("g")
+      .attr("class", d => d.children ? "node parent-node" : "node")
+      .attr("transform", d => `translate(${d.y},${d.x})`)
+      .on("click", function(event, d) {
+        // Only make leaf nodes (nodes without children) clickable
+        if (!d.children) {
+          showCareerDetail(d.data.name);
+        }
+      });
+
+    // Add circles to nodes
+    node.append("circle")
+      .attr("r", 10)
+      .attr("fill", "#fff")
+      .attr("stroke", "#4a6baf")
+      .attr("stroke-width", 2);
+
+    // Add text to nodes
+    node.append("text")
+      .attr("dy", ".35em")
+      .attr("x", d => d.children ? -15 : 15)
+      .style("text-anchor", d => d.children ? "end" : "start")
+      .text(d => d.data.name)
+      .style("font-size", "12px")
+      .style("font-weight", "bold");
+
+    // Center the mindmap
+    const bounds = root.descendants().reduce((acc, d) => {
+      return {
+        minX: Math.min(acc.minX, d.x),
+        maxX: Math.max(acc.maxX, d.x),
+        minY: Math.min(acc.minY, d.y),
+        maxY: Math.max(acc.maxY, d.y)
+      };
+    }, {minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity});
+
+    const width = bounds.maxY - bounds.minY + 100;
+    const height = bounds.maxX - bounds.minX + 100;
+    const centerX = (bounds.minY + bounds.maxY) / 2;
+    const centerY = (bounds.minX + bounds.maxX) / 2;
+
+    svg.attr("viewBox", [0, 0, width, height].join(" "));
+    g.attr("transform", `translate(${width/2 - centerY},${height/2 - centerX})`);
+  }
+
+  function zoomIn() {
+    svg.transition().call(zoom.scaleBy, 1.2);
+  }
+
+  function zoomOut() {
+    svg.transition().call(zoom.scaleBy, 0.8);
+  }
+
+  function showCareerDetail(careerName) {
+    // Hide mind map, show detail page
+    document.getElementById("page3").classList.remove("active");
+    document.getElementById("page4").classList.add("active");
+    
+    // Set career title
+    document.getElementById("career-title").textContent = careerName;
+    
+    // Get career data or use default if not found
+    const careerData = careerDatabase[careerName] || {
+      overview: "Detailed information about this career path is coming soon.",
+      education: "Educational requirements will be listed here.",
+      prospects: "Career growth information will be provided here.",
+      salary: "Salary range data will be included here."
+    };
+    
+    // Populate the detail page
+    document.getElementById("career-overview").textContent = careerData.overview;
+    document.getElementById("career-education").textContent = careerData.education;
+    document.getElementById("career-prospects").textContent = careerData.prospects;
+    document.getElementById("career-salary").textContent = careerData.salary;
+  }
+
+  function goBackToMindMap() {
+    // Hide detail page, show mind map
+    document.getElementById("page4").classList.remove("active");
+    document.getElementById("page3").classList.add("active");
+  }
+
+  function goBackToStreamSelection() {
+    // Hide current page, show stream selection
+    document.querySelector(".page.active").classList.remove("active");
+    document.getElementById("page1").classList.add("active");
+    
+    // Reset the stream selection dropdown
+    streamSelect.value = "";
+    currentStream = "";
+  }
+</script>
+</body>
+</html>
